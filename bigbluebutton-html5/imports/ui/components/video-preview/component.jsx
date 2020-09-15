@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import {
-  defineMessages, injectIntl, intlShape, FormattedMessage,
+  defineMessages, injectIntl, FormattedMessage,
 } from 'react-intl';
 import Button from '/imports/ui/components/button/component';
 // import { notify } from '/imports/ui/services/notification';
@@ -9,6 +9,7 @@ import logger from '/imports/startup/client/logger';
 import Modal from '/imports/ui/components/modal/simple/component';
 import browser from 'browser-detect';
 import VideoService from '../video-provider/service';
+import cx from 'classnames';
 import { styles } from './styles';
 
 const CAMERA_PROFILES = Meteor.settings.public.kurento.cameraProfiles;
@@ -20,7 +21,7 @@ const VIEW_STATES = {
 };
 
 const propTypes = {
-  intl: intlShape.isRequired,
+  intl: PropTypes.object.isRequired,
   closeModal: PropTypes.func.isRequired,
   startSharing: PropTypes.func.isRequired,
   stopSharing: PropTypes.func.isRequired,
@@ -29,6 +30,7 @@ const propTypes = {
   resolve: PropTypes.func,
   skipVideoPreview: PropTypes.bool.isRequired,
   hasMediaDevices: PropTypes.bool.isRequired,
+  hasVideoStream: PropTypes.bool.isRequired,
   webcamDeviceId: PropTypes.string,
   sharedDevices: PropTypes.arrayOf(PropTypes.string),
 };
@@ -60,6 +62,22 @@ const intlMessages = defineMessages({
     id: 'app.videoPreview.profileLabel',
     description: 'Quality dropdown label',
   },
+  low: {
+    id: 'app.videoPreview.quality.low',
+    description: 'Low quality option label',
+  },
+  medium: {
+    id: 'app.videoPreview.quality.medium',
+    description: 'Medium quality option label',
+  },
+  high: {
+    id: 'app.videoPreview.quality.high',
+    description: 'High quality option label',
+  },
+  hd: {
+    id: 'app.videoPreview.quality.hd',
+    description: 'High definition option label',
+  },
   cancelLabel: {
     id: 'app.videoPreview.cancelLabel',
     description: 'Cancel button label',
@@ -71,6 +89,10 @@ const intlMessages = defineMessages({
   stopSharingLabel: {
     id: 'app.videoPreview.stopSharingLabel',
     description: 'Stop sharing button label',
+  },
+  stopSharingAllLabel: {
+    id: 'app.videoPreview.stopSharingAllLabel',
+    description: 'Stop sharing all button label',
   },
   sharedCameraLabel: {
     id: 'app.videoPreview.sharedCameraLabel',
@@ -182,6 +204,7 @@ class VideoPreview extends Component {
     this.handleProceed = this.handleProceed.bind(this);
     this.handleStartSharing = this.handleStartSharing.bind(this);
     this.handleStopSharing = this.handleStopSharing.bind(this);
+    this.handleStopSharingAll = this.handleStopSharingAll.bind(this);
     this.handleSelectWebcam = this.handleSelectWebcam.bind(this);
     this.handleSelectProfile = this.handleSelectProfile.bind(this);
 
@@ -201,6 +224,7 @@ class VideoPreview extends Component {
     };
 
     this.userParameterProfile = VideoService.getUserParameterProfile();
+    this.mirrorOwnWebcam = VideoService.mirrorOwnWebcam();
   }
 
   componentDidMount() {
@@ -371,6 +395,13 @@ class VideoPreview extends Component {
     if (resolve) resolve();
   }
 
+  handleStopSharingAll() {
+    const { resolve, stopSharing } = this.props;
+    this.stopTracks();
+    stopSharing();
+    if (resolve) resolve();
+  }
+
   handleProceed() {
     const { resolve, closeModal } = this.props;
     this.stopTracks();
@@ -380,7 +411,7 @@ class VideoPreview extends Component {
 
   displayInitialPreview(deviceId) {
     const { changeWebcam } = this.props;
-    const availableProfiles = CAMERA_PROFILES;
+    const availableProfiles = CAMERA_PROFILES.filter(p => !p.hidden);
 
     this.setState({
       webcamDeviceId: deviceId,
@@ -525,11 +556,16 @@ class VideoPreview extends Component {
                     onChange={this.handleSelectProfile}
                     disabled={skipVideoPreview}
                   >
-                    {availableProfiles.map(profile => (
+                    {availableProfiles.map(profile => {
+                     const label = intlMessages[`${profile.id}`]
+                      ? intl.formatMessage(intlMessages[`${profile.id}`])
+                      : profile.name;
+
+                     return (
                       <option key={profile.id} value={profile.id}>
-                        {profile.name}
+                        {`${label} ${profile.id === 'hd' ? '' : intl.formatMessage(intlMessages.qualityLabel).toLowerCase()}`}
                       </option>
-                    ))}
+                    )})}
                   </select>
                 )
                 : (
@@ -588,7 +624,10 @@ class VideoPreview extends Component {
                   <video
                     id="preview"
                     data-test="videoPreview"
-                    className={styles.preview}
+                    className={cx({
+                      [styles.preview]: true,
+                      [styles.mirroredVideo]: this.mirrorOwnWebcam,
+                    })}
                     ref={(ref) => { this.video = ref; }}
                     autoPlay
                     playsInline
@@ -608,6 +647,7 @@ class VideoPreview extends Component {
       intl,
       skipVideoPreview,
       sharedDevices,
+      hasVideoStream,
     } = this.props;
 
     const {
@@ -641,6 +681,17 @@ class VideoPreview extends Component {
         {this.renderContent()}
 
         <div className={styles.footer}>
+          {hasVideoStream ?
+            (<div className={styles.extraActions}>
+              <Button
+                color="danger"
+                label={intl.formatMessage(intlMessages.stopSharingAllLabel)}
+                onClick={this.handleStopSharingAll}
+                disabled={shouldDisableButtons}
+              />
+            </div>)
+            : null
+          }
           <div className={styles.actions}>
             <Button
               label={intl.formatMessage(intlMessages.cancelLabel)}

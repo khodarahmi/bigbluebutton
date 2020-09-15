@@ -31,6 +31,7 @@ const oldParametersKeys = Object.keys(oldParameters);
 const currentParameters = [
   // APP
   'bbb_ask_for_feedback_on_logout',
+  'bbb_override_default_locale',
   'bbb_auto_join_audio',
   'bbb_client_title',
   'bbb_force_listen_only',
@@ -45,7 +46,9 @@ const currentParameters = [
   'bbb_preferred_camera_profile',
   'bbb_enable_screen_sharing',
   'bbb_enable_video',
+  'bbb_record_video',
   'bbb_skip_video_preview',
+  'bbb_mirror_own_webcam',
   // PRESENTATION
   'bbb_force_restore_presentation_on_new_events',
   // WHITEBOARD
@@ -70,7 +73,7 @@ function valueParser(val) {
     const parsedValue = JSON.parse(val.toLowerCase());
     return parsedValue;
   } catch (error) {
-    logger.error('Parameter value could not ber parsed');
+    logger.warn(`addUserSettings:Parameter ${val} could not be parsed (was not json)`);
     return val;
   }
 }
